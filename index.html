@@ -225,6 +225,12 @@
                     <input type="number" id="targetGrade" placeholder="例如：88.0" step="0.1">
                 </div>
                 <div class="form-item">
+                    <label for="targetCourseScore">目标课程大致分数</label>
+                    <input type="number" id="targetCourseScore" placeholder="例如：85" step="0.1">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-item">
                     <label for="courseCredits">单门课程平均学分</label>
                     <input type="number" id="courseCredits" placeholder="例如：3" step="0.1">
                 </div>
@@ -266,7 +272,8 @@
             const subject = {
                 id: subjectId,
                 score: '',
-                credits: ''
+                credits: '',
+                remark: ''
             };
 
             subjects.push(subject);
@@ -284,14 +291,14 @@
             const container = document.getElementById('subjects-container');
 
             // 先保存当前所有输入框的值
-            const inputs = container.querySelectorAll('.subject-row input');
+            const inputs = container.querySelectorAll('.subject-row input, .subject-row textarea');
             inputs.forEach(input => {
                 const row = input.parentElement;
                 const subjectId = parseInt(row.dataset.id);
                 const field = input.name;
                 const value = input.value;
                 if (!isNaN(subjectId)) {
-                    updateSubject(subjectId, field, value);
+                    updateSubject(subject.id, field, value);
                 }
             });
 
@@ -301,16 +308,36 @@
                 const row = document.createElement('div');
                 row.className = 'subject-row';
                 row.dataset.id = subject.id;
+                row.style.padding = '10px';
+                row.style.border = '1px solid #ddd';
+                row.style.borderRadius = '4px';
+                row.style.marginBottom = '10px';
+                row.style.backgroundColor = '#f9f9f9';
+
                 row.innerHTML = `
-                    <input type="number" name="score" placeholder="分数（例如：90）" step="0.1" 
-                           oninput="updateSubject(${subject.id}, 'score', this.value)"
-                           onchange="updateSubject(${subject.id}, 'score', this.value)"
-                           value="${subject.score || ''}">
-                    <input type="number" name="credits" placeholder="学分（例如：3）" step="0.1" 
-                           oninput="updateSubject(${subject.id}, 'credits', this.value)"
-                           onchange="updateSubject(${subject.id}, 'credits', this.value)"
-                           value="${subject.credits || ''}">
-                    <button class="btn btn-danger" onclick="removeSubject(${subject.id})">删除</button>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
+                        <input type="number" name="score" placeholder="分数（例如：90）" step="0.1" 
+                               oninput="updateSubject(${subject.id}, 'score', this.value)"
+                               onchange="updateSubject(${subject.id}, 'score', this.value)"
+                               value="${subject.score || ''}"
+                               style="flex: 1; min-width: 120px;">
+                        <input type="number" name="credits" placeholder="学分（例如：3）" step="0.1" 
+                               oninput="updateSubject(${subject.id}, 'credits', this.value)"
+                               onchange="updateSubject(${subject.id}, 'credits', this.value)"
+                               value="${subject.credits || ''}"
+                               style="flex: 1; min-width: 80px;">
+                        <button class="btn btn-danger" onclick="removeSubject(${subject.id})" 
+                                style="flex-shrink: 0;">
+                            删除
+                        </button>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <label style="font-size: 12px; color: #666; margin-bottom: 3px; display: block;">备注</label>
+                        <textarea name="remark" placeholder="可选，添加课程备注" rows="2" 
+                                  oninput="updateSubject(${subject.id}, 'remark', this.value)"
+                                  onchange="updateSubject(${subject.id}, 'remark', this.value)" 
+                                  style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; resize: vertical;">${subject.remark || ''}</textarea>
+                    </div>
                 `;
                 container.appendChild(row);
             });
@@ -339,6 +366,7 @@
             const currentGrade = document.getElementById('currentGrade').value;
             const currentCredits = document.getElementById('currentCredits').value;
             const targetGrade = document.getElementById('targetGrade').value;
+            const targetCourseScore = document.getElementById('targetCourseScore').value;
             const courseCredits = document.getElementById('courseCredits').value;
 
             if (!validateInput(currentGrade)) {
@@ -351,16 +379,25 @@
                 return;
             }
 
-            // 验证目标分数和单门课程学分（可选）
+            // 验证目标分数和相关参数（可选）
             let targetGradeNum = null;
+            let targetCourseScoreNum = null;
             let courseCreditsNum = null;
 
             if (validateInput(targetGrade)) {
                 targetGradeNum = parseFloat(targetGrade);
+
+                // 目标课程大致分数和单门课程平均学分为必填项
+                if (!validateInput(targetCourseScore)) {
+                    alert('请输入有效的目标课程大致分数');
+                    return;
+                }
                 if (!validateInput(courseCredits)) {
                     alert('请输入有效的单门课程平均学分');
                     return;
                 }
+
+                targetCourseScoreNum = parseFloat(targetCourseScore);
                 courseCreditsNum = parseFloat(courseCredits);
             }
 
@@ -413,10 +450,13 @@
                 const achievedTotalScore = currentTotalScore + estimatedTotalScore;
                 neededScore = requiredTotalScore - achievedTotalScore;
 
-                if (courseCreditsNum > 0) {
-                    if (neededScore > 0) {
-                        // 直接根据还需分数和单门课程学分计算，不再假设每门课程都取得100分
-                        neededCourses = Math.ceil(neededScore / courseCreditsNum);
+                if (courseCreditsNum > 0 && neededScore > 0) {
+                    // 根据目标课程大致分数计算每门课程能贡献的分数
+                    const perCourseContribution = targetCourseScoreNum * courseCreditsNum;
+
+                    if (perCourseContribution > 0) {
+                        // 计算需要多少门这样的课程
+                        neededCourses = Math.ceil(neededScore / perCourseContribution);
                     }
                 }
             }
