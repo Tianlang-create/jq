@@ -282,17 +282,32 @@
         // 渲染估分科目列表
         function renderSubjects() {
             const container = document.getElementById('subjects-container');
+
+            // 先保存当前所有输入框的值
+            const inputs = container.querySelectorAll('.subject-row input');
+            inputs.forEach(input => {
+                const row = input.parentElement;
+                const subjectId = parseInt(row.dataset.id);
+                const field = input.name;
+                const value = input.value;
+                if (!isNaN(subjectId)) {
+                    updateSubject(subjectId, field, value);
+                }
+            });
+
             container.innerHTML = '';
 
             subjects.forEach(subject => {
                 const row = document.createElement('div');
                 row.className = 'subject-row';
-                // 保存当前输入的值
+                row.dataset.id = subject.id;
                 row.innerHTML = `
-                    <input type="number" placeholder="分数（例如：90）" step="0.1" 
+                    <input type="number" name="score" placeholder="分数（例如：90）" step="0.1" 
+                           oninput="updateSubject(${subject.id}, 'score', this.value)"
                            onchange="updateSubject(${subject.id}, 'score', this.value)"
                            value="${subject.score || ''}">
-                    <input type="number" placeholder="学分（例如：3）" step="0.1" 
+                    <input type="number" name="credits" placeholder="学分（例如：3）" step="0.1" 
+                           oninput="updateSubject(${subject.id}, 'credits', this.value)"
                            onchange="updateSubject(${subject.id}, 'credits', this.value)"
                            value="${subject.credits || ''}">
                     <button class="btn btn-danger" onclick="removeSubject(${subject.id})">删除</button>
